@@ -49,22 +49,21 @@ graph TD
     end
     
     subgraph "Bases de Datos"
-        DB_Odoo_NC[🐘 PostgreSQL]
+        DB_Odoo[🐘 PostgreSQL]
+        DB_Nextcloud[🐘 PostgreSQL]
         DB_OpenMRS[🐬 MariaDB]
         DB_Kong[🐘 PostgreSQL]
     end
 
-    U -- Accede a Apps --> Odoo
-    U -- Accede a Apps --> Nextcloud
-    U -- Accede a Apps --> OpenMRS
-
-    Odoo -- SSO Redirect --> KC
-    Nextcloud -- SSO Redirect --> KC
+    U -- Accede a Apps Web --> Odoo
+    U -- Accede a Apps Web --> Nextcloud
     
-    U -- Peticiones API --> GW
+    Nextcloud -- SSO Redirect vía Navegador --> KC
+    
+    U -- Peticiones API (Scripts) --> GW
 
     GW -- Valida Token JWT con --> KC
-    GW -- Enruta a --> OpenMRS
+    GW -- Enruta a /openmrs --> OpenMRS
     
     Script1[🔄 Script Sincro Pacientes] -- Lee desde --> Odoo
     Script1 -- Escribe vía API a --> GW
@@ -72,8 +71,8 @@ graph TD
     Script2[🔄 Script Sincro Archivos] -- Lee desde --> Nextcloud
     Script2 -- Escribe vía API a --> GW
 
-    Odoo --> DB_Odoo_NC
-    Nextcloud --> DB_Odoo_NC
+    Odoo --> DB_Odoo
+    Nextcloud --> DB_Nextcloud
     OpenMRS --> DB_OpenMRS
     Kong --> DB_Kong
 2.2. Componentes y Tecnologías
