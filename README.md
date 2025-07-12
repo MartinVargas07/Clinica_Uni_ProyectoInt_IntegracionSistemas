@@ -26,56 +26,7 @@ Todo esto se orquesta y se protege a través de un **API Gateway**, que actúa c
 
 La arquitectura se basa en un conjunto de microservicios y aplicaciones que se comunican a través de patrones de integración bien definidos.
 
-### 2.1. Diagrama de Arquitectura
-
-```mermaid
-graph TD
-    subgraph "Usuario Final (Médico/Admin)"
-        U[👨‍⚕️ Usuario]
-    end
-
-    subgraph "Capa de Acceso y Seguridad"
-        GW[🚪 API Gateway - Kong]
-    end
-    
-    subgraph "Capa de Identidad"
-        KC[🔑 Keycloak]
-    end
-
-    subgraph "Sistemas de Negocio"
-        Odoo[📄 Odoo ERP]
-        OpenMRS[❤️ OpenMRS Core API]
-        Nextcloud[📂 Nextcloud]
-    end
-    
-    subgraph "Bases de Datos"
-        DB_Odoo[🐘 PostgreSQL]
-        DB_Nextcloud[🐘 PostgreSQL]
-        DB_OpenMRS[🐬 MariaDB]
-        DB_Kong[🐘 PostgreSQL]
-    end
-
-    U -- Accede a Apps Web --> Odoo
-    U -- Accede a Apps Web --> Nextcloud
-    
-    Nextcloud -- SSO Redirect vía Navegador --> KC
-    
-    U -- Peticiones API (Scripts) --> GW
-
-    GW -- Valida Token JWT con --> KC
-    GW -- Enruta a /openmrs --> OpenMRS
-    
-    Script1[🔄 Script Sincro Pacientes] -- Lee desde --> Odoo
-    Script1 -- Escribe vía API a --> GW
-    
-    Script2[🔄 Script Sincro Archivos] -- Lee desde --> Nextcloud
-    Script2 -- Escribe vía API a --> GW
-
-    Odoo --> DB_Odoo
-    Nextcloud --> DB_Nextcloud
-    OpenMRS --> DB_OpenMRS
-    Kong --> DB_Kong
-2.2. Componentes y Tecnologías
+2.1. Componentes y Tecnologías
 Componente
 
 Sistema/Tecnología
