@@ -1,0 +1,175 @@
+services:
+  # --- Base de Datos DEDICADA para Odoo ---
+  odoo-db:
+    image: postgres:13
+    container_name: odoo-db
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_ODOO}
+      - POSTGRES_USER=odoo
+      - POSTGRES_DB=postgres
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    networks:
+      - clinic-net
+
+  # --- Base de Datos DEDICADA para Nextcloud ---
+  nextcloud-db:
+    image: postgres:13
+    container_name: nextcloud-db
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_NEXTCLOUD}
+    volumes:
+      - nextcloud-db-data:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d # El script solo aplica aquí
+    networks:
+      - clinic-net
+
+  odoo:
+    image: odoo:16.0
+    container_name: odoo
+    depends_on:
+      - odoo-db # Depende de su propia DB
+    environment:
+      - HOST=odoo-db # Apunta a su propia DB
+      - USER=odoo
+      - PASSWORD=${POSTGRES_PASSWORD_ODOO}
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+    networks:
+      - clinic-net
+
+  nextcloud:
+    image: nextcloud:28
+    container_name: nextcloud
+    depends_on:
+      - nextcloud-db # Depende de su propia DB
+    ports:
+      - "8081:80"
+    environment:
+      - POSTGRES_HOST=nextcloud-db # Apunta a su propia DB
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_NEXTCLOUD}
+    volumes:
+      - nextcloud-data:/var/www/html
+    networks:
+      - clinic-net
+
+  # --- El resto de los servicios se mantienen igual ---
+  openmrs-db:
+    image: mariadb:10.11.7
+    container_name: openmrs-db
+    command: "mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci"
+    environment:
+      - MYSQL_DATABASE=${OMRS_DB_NAME}
+      - MYSQL_USER=${OMRS_DB_USER}
+      - MYSQL_PASSWORD=${OMRS_DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${OMRS_DB_ROOT_PASSWORD}
+    volumes:
+      - openmrs-mysql-data:/var/lib/mysql
+    networks:
+      - clinic-net
+
+  openmrs-api:
+    image: openmrs/openmrs-core:nightly
+    container_name: openmrs-api
+    depends_on:
+      - openmrs-db
+    ports:
+      - "8083:8080"
+    environment:
+      - OMRS_DB_HOSTNAME=openmrs-db
+      - OMRS_DB_NAME=${OMRS_DB_NAME}
+      - OMRS_DB_USERNAME=${OMRS_DB_USER}
+      - OMRS_DB_PASSWORD=${OMRS_DB_PASSWORD}
+      - OMRS_ADMIN_USER_PASSWORD=${OMRS_ADMIN_USER_PASSWORD}
+    volumes:
+      - openmrs-data:/openmrs/data/
+    networks:
+      - clinic-net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    container_name: keycloak
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+    ports:
+      - "8888:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    networks:
+      - clinic-net
+
+  postgres_kong:
+    image: postgres:13
+    container_name: postgres_kong
+    environment:
+      - POSTGRES_USER=kong
+      - POSTGRES_DB=kong
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_KONG}
+    volumes:
+      - kong-db-data:/var/lib/postgresql/data
+    networks:
+      - clinic-net
+
+  kong-migrations:
+    image: kong:3.6
+    command: "kong migrations bootstrap"
+    depends_on:
+      - postgres_kong
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=postgres_kong
+      - KONG_PG_USER=kong
+      - KONG_PG_PASSWORD=${POSTGRES_PASSWORD_KONG}
+    restart: on-failure
+    networks:
+      - clinic-net
+
+  kong:
+    image: kong:3.6
+    container_name: kong
+    depends_on:
+      kong-migrations:
+        condition: service_completed_successfully
+    environment:
+      - KONG_DATABASE=postgres
+      - KONG_PG_HOST=postgres_kong
+      - KONG_PG_USER=kong
+      - KONG_PG_PASSWORD=${POSTGRES_PASSWORD_KONG}
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    networks:
+      - clinic-net
+
+  konga:
+    image: pantsel/konga
+    container_name: konga
+    depends_on:
+      - kong
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "1337:1337"
+    networks:
+      - clinic-net
+
+volumes:
+  odoo-db-data:
+  nextcloud-db-data: # <-- Volumen para la nueva DB de Nextcloud
+  odoo-web-data:
+  nextcloud-data:
+  openmrs-mysql-data:
+  openmrs-data:
+  keycloak-data:
+  kong-db-data:
+
+networks:
+  clinic-net:
+    driver: bridge
